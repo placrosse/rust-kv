@@ -81,7 +81,7 @@ pub use crate::encoding::msgpack;
 
 pub use crate::buf::ValueBuf;
 pub use crate::config::{Config, DatabaseFlags};
-pub use crate::cursor::{Cursor, CursorOp};
+pub use crate::cursor::{Cursor, CursorOp, Iter};
 pub use crate::encoding::{Encoding, Serde};
 pub use crate::error::Error;
 pub use crate::manager::Manager;
