@@ -112,6 +112,22 @@ impl<'a, K: Key, V: Value<'a>> Cursor<'a, K, V> {
     }
 
     #[inline]
+    /// Iterate over key/values pairs starting at `key`
+    pub fn iter_from_rev(&mut self, key: &'a K) -> Iter<'a, K, V> {
+        match self {
+            Cursor::ReadOnly(ref mut ro) => Iter(
+                ro.iter_from_rev(key.as_ref()),
+                Hidden(PhantomData, PhantomData),
+            ),
+            Cursor::ReadWrite(ref mut rw) => Iter(
+                rw.iter_from_rev(key.as_ref()),
+                Hidden(PhantomData, PhantomData),
+            ),
+            Cursor::Phantom(_) => unreachable!(),
+        }
+    }
+
+    #[inline]
     /// Insert a value at the current position
     pub fn set<V0: Into<V>>(&mut self, key: &'a K, value: V0) -> Result<(), Error> {
         match self {
