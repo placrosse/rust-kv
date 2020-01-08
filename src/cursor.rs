@@ -51,16 +51,24 @@ pub enum Cursor<'a, K, V> {
 }
 
 /// Iter wrapper
-pub struct Iter<'a, K, V>(lmdb::Iter<'a>, Hidden<K, V>);
+/// bool is false for forward and true for reverse direction
+/// Option<K> is to stop at end of range
+pub struct Iter<'a, K, V>(lmdb::Iter<'a>, bool, Option<&'a K>, Hidden<K, V>);
 
 impl<'a, K: Key, V: Value<'a>> Iterator for Iter<'a, K, V>
 where
-    K: From<&'a [u8]>,
+    K: From<&'a [u8]> + PartialOrd,
 {
     type Item = (K, V);
     fn next(&mut self) -> Option<(K, V)> {
         let (k, v) = match lmdb::Iter::next(&mut self.0) {
-            Some(Ok((k, v))) => (k, v),
+            Some(Ok((k, v)))
+                if self.2.is_none()
+                    || (!self.1 && K::from(k) <= *self.2.unwrap())
+                    || (K::from(k) >= *self.2.unwrap()) =>
+            {
+                (k, v)
+            }
             _ => return None,
         };
         Some((K::from(k), V::from_raw(v)))
@@ -89,10 +97,18 @@ impl<'a, K: Key, V: Value<'a>> Cursor<'a, K, V> {
     /// Iterate over all key/value pairs
     pub fn iter(&mut self) -> Iter<'a, K, V> {
         match self {
-            Cursor::ReadOnly(ref mut ro) => Iter(ro.iter_start(), Hidden(PhantomData, PhantomData)),
-            Cursor::ReadWrite(ref mut rw) => {
-                Iter(rw.iter_start(), Hidden(PhantomData, PhantomData))
-            }
+            Cursor::ReadOnly(ref mut ro) => Iter(
+                ro.iter_start(),
+                false,
+                None,
+                Hidden(PhantomData, PhantomData),
+            ),
+            Cursor::ReadWrite(ref mut rw) => Iter(
+                rw.iter_start(),
+                false,
+                None,
+                Hidden(PhantomData, PhantomData),
+            ),
             Cursor::Phantom(_) => unreachable!(),
         }
     }
@@ -101,12 +117,18 @@ impl<'a, K: Key, V: Value<'a>> Cursor<'a, K, V> {
     /// Iterate over key/values pairs starting at `key`
     pub fn iter_from(&mut self, key: &'a K) -> Iter<'a, K, V> {
         match self {
-            Cursor::ReadOnly(ref mut ro) => {
-                Iter(ro.iter_from(key.as_ref()), Hidden(PhantomData, PhantomData))
-            }
-            Cursor::ReadWrite(ref mut rw) => {
-                Iter(rw.iter_from(key.as_ref()), Hidden(PhantomData, PhantomData))
-            }
+            Cursor::ReadOnly(ref mut ro) => Iter(
+                ro.iter_from(key.as_ref()),
+                false,
+                None,
+                Hidden(PhantomData, PhantomData),
+            ),
+            Cursor::ReadWrite(ref mut rw) => Iter(
+                rw.iter_from(key.as_ref()),
+                false,
+                None,
+                Hidden(PhantomData, PhantomData),
+            ),
             Cursor::Phantom(_) => unreachable!(),
         }
     }
@@ -117,10 +139,54 @@ impl<'a, K: Key, V: Value<'a>> Cursor<'a, K, V> {
         match self {
             Cursor::ReadOnly(ref mut ro) => Iter(
                 ro.iter_from_rev(key.as_ref()),
+                true,
+                None,
                 Hidden(PhantomData, PhantomData),
             ),
             Cursor::ReadWrite(ref mut rw) => Iter(
                 rw.iter_from_rev(key.as_ref()),
+                true,
+                None,
+                Hidden(PhantomData, PhantomData),
+            ),
+            Cursor::Phantom(_) => unreachable!(),
+        }
+    }
+
+    #[inline]
+    /// Iterate over key/values pairs starting at `start` and ending at `end`
+    pub fn iter_range(&mut self, start: &'a K, end: &'a K) -> Iter<'a, K, V> {
+        match self {
+            Cursor::ReadOnly(ref mut ro) => Iter(
+                ro.iter_from(start.as_ref()),
+                false,
+                Some(end),
+                Hidden(PhantomData, PhantomData),
+            ),
+            Cursor::ReadWrite(ref mut rw) => Iter(
+                rw.iter_from(start.as_ref()),
+                false,
+                Some(end),
+                Hidden(PhantomData, PhantomData),
+            ),
+            Cursor::Phantom(_) => unreachable!(),
+        }
+    }
+
+    #[inline]
+    /// Iterate in reverse over key/values pairs starting at `start` and ending at `end`
+    pub fn iter_range_rev(&mut self, start: &'a K, end: &'a K) -> Iter<'a, K, V> {
+        match self {
+            Cursor::ReadOnly(ref mut ro) => Iter(
+                ro.iter_from_rev(start.as_ref()),
+                true,
+                Some(end),
+                Hidden(PhantomData, PhantomData),
+            ),
+            Cursor::ReadWrite(ref mut rw) => Iter(
+                rw.iter_from_rev(start.as_ref()),
+                true,
+                Some(end),
                 Hidden(PhantomData, PhantomData),
             ),
             Cursor::Phantom(_) => unreachable!(),
