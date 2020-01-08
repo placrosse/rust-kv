@@ -15,7 +15,7 @@ all-features = true
 
 [dependencies]
 thiserror = "1.0.9"
-lmdb-rkv = { git = "https://github.com/placrosse/lmdb-rs", branch = "master" }
+lmdb-rkv = { git = "https://github.com/placrosse/lmdb-rs", rev = "3bce081" }
 serde = {version = "1.0", features=["derive"]}
 toml = "0.5"
 bincode = { version = "1.0", optional = true }
