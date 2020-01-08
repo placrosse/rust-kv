@@ -1,4 +1,4 @@
-use std::{mem, str};
+use std::{cmp::Ordering, mem, str};
 
 /// A Key can be used as a key to a database
 pub trait Key: AsRef<[u8]> {}
@@ -10,18 +10,24 @@ pub trait Value<'a>: AsRef<[u8]> {
 }
 
 /// Integer key type
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy)]
 pub struct Integer([u8; 8]);
 
-impl From<u64> for Integer {
-    #[cfg(target_endian = "little")]
-    fn from(i: u64) -> Integer {
-        unsafe { Integer(mem::transmute(i.to_le())) }
+impl PartialOrd for Integer {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        u64::from(*self).partial_cmp(&u64::from(*other))
     }
+}
 
-    #[cfg(target_endian = "big")]
+impl PartialEq for Integer {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl From<u64> for Integer {
     fn from(i: u64) -> Integer {
-        unsafe { Integer(mem::transmute(i.to_be())) }
+        unsafe { Integer(mem::transmute(i)) }
     }
 }
 
