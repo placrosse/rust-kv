@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, ops::RangeInclusive};
 
 use lmdb;
 use lmdb::Cursor as LMDBCursor;
@@ -65,7 +65,7 @@ where
             Some(Ok((k, v)))
                 if self.2.is_none()
                     || (!self.1 && K::from(k) <= *self.2.unwrap())
-                    || (K::from(k) >= *self.2.unwrap()) =>
+                    || (self.1 && K::from(k) >= *self.2.unwrap()) =>
             {
                 (k, v)
             }
@@ -154,19 +154,19 @@ impl<'a, K: Key, V: Value<'a>> Cursor<'a, K, V> {
     }
 
     #[inline]
-    /// Iterate over key/values pairs starting at `start` and ending at `end`
-    pub fn iter_range(&mut self, start: &'a K, end: &'a K) -> Iter<'a, K, V> {
+    /// Iterate over key/values from range
+    pub fn iter_range(&mut self, range: &'a RangeInclusive<K>) -> Iter<'a, K, V> {
         match self {
             Cursor::ReadOnly(ref mut ro) => Iter(
-                ro.iter_from(start.as_ref()),
+                ro.iter_from(range.start().as_ref()),
                 false,
-                Some(end),
+                Some(range.end()),
                 Hidden(PhantomData, PhantomData),
             ),
             Cursor::ReadWrite(ref mut rw) => Iter(
-                rw.iter_from(start.as_ref()),
+                rw.iter_from(range.start().as_ref()),
                 false,
-                Some(end),
+                Some(range.end()),
                 Hidden(PhantomData, PhantomData),
             ),
             Cursor::Phantom(_) => unreachable!(),
@@ -174,19 +174,19 @@ impl<'a, K: Key, V: Value<'a>> Cursor<'a, K, V> {
     }
 
     #[inline]
-    /// Iterate in reverse over key/values pairs starting at `start` and ending at `end`
-    pub fn iter_range_rev(&mut self, start: &'a K, end: &'a K) -> Iter<'a, K, V> {
+    /// Iterate in reverse over key/values from range
+    pub fn iter_range_rev(&mut self, range: &'a RangeInclusive<K>) -> Iter<'a, K, V> {
         match self {
             Cursor::ReadOnly(ref mut ro) => Iter(
-                ro.iter_from_rev(start.as_ref()),
+                ro.iter_from_rev(range.end().as_ref()),
                 true,
-                Some(end),
+                Some(range.start()),
                 Hidden(PhantomData, PhantomData),
             ),
             Cursor::ReadWrite(ref mut rw) => Iter(
-                rw.iter_from_rev(start.as_ref()),
+                rw.iter_from_rev(range.end().as_ref()),
                 true,
-                Some(end),
+                Some(range.start()),
                 Hidden(PhantomData, PhantomData),
             ),
             Cursor::Phantom(_) => unreachable!(),
